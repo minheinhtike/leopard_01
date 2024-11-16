@@ -1,0 +1,46 @@
+Thu Nov 14 19:13:20 EST 2024
+MaxEnt version 3.4.4
+Reading file Back_swd.csv
+readGrid: max memory 477626368, total allocated 245366784, free 227286216, used 18080568, increment 18080568
+Reading samples from Sp_swd.csv
+Read samples: max memory 477626368, total allocated 245366784, free 224727632, used 20639152, increment 2558584
+Making features
+makeFeatures: max memory 477626368, total allocated 245366784, free 223448376, used 21918408, increment 1279256
+Command line used:  environmentallayers=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Back_swd.csv samplesfile=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Sp_swd.csv projectionlayers=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Predictions/Pred_swd.csv outputdirectory=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs outputformat=logistic redoifexists visible=FALSE linear=TRUE quadratic=TRUE product=TRUE threshold=TRUE hinge=TRUE lq2lqptthreshold=80 l2lqthreshold=10 hingethreshold=15 beta_threshold=-1 beta_categorical=-1 beta_lqp=-1 beta_hinge=-1 betamultiplier=1 defaultprevalence=0.5 autorun nowarnings notooltips noaddsamplestobackground
+Command line to repeat: java density.MaxEnt nowarnings noprefixes outputformat=logistic outputdirectory=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs projectionlayers=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Predictions/Pred_swd.csv samplesfile=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Sp_swd.csv environmentallayers=./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Back_swd.csv nowarnings notooltips noaskoverwrite threshold noaddsamplestobackground autorun novisible
+Species: IDP.event_PA4_RUN1
+Layers: bio1 bio2 canopy_h dist_patrol dist_rd dist_vlg dist_water elev ndvi slope
+Layertypes: Continuous Continuous Continuous Continuous Continuous Continuous Continuous Continuous Continuous Continuous
+outputformat: logistic
+outputdirectory: ./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs
+projectionlayers: ./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Predictions/Pred_swd.csv
+samplesfile: ./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Sp_swd.csv
+environmentallayers: ./IDP.event/models/AllModels/IDP.event_PA4_RUN1_MAXENT_outputs/Back_swd.csv
+warnings: false
+tooltips: false
+askoverwrite: false
+threshold: true
+addsamplestobackground: false
+autorun: true
+visible: false
+
+getSamples: max memory 477626368, total allocated 245366784, free 223448376, used 21918408, increment 0
+IDP.event_PA4_RUN1: 
+Regularization values: linear/quadratic/product: 0.204, categorical: 0.250, threshold: 1.540, hinge: 0.500
+46 samples
+Density: max memory 477626368, total allocated 245366784, free 222167200, used 23199584, increment 1281176
+linearPredictor: max memory 477626368, total allocated 245366784, free 222167200, used 23199584, increment 0
+FeaturedSpace: max memory 477626368, total allocated 245366784, free 222167200, used 23199584, increment 0
+Sequential: max memory 477626368, total allocated 245366784, free 222167200, used 23199584, increment 0
+Initial loss: 4.248495242049359
+Terminated because gain exceeded 10000.0
+120: time = 0.071000 loss = -360,031,939.196768
+Resulting gain: 3.600319434452636E8
+Projecting...
+Writing file .\IDP.event\models\AllModels\IDP.event_PA4_RUN1_MAXENT_outputs\IDP.event_PA4_RUN1.csv
+Projecting...
+Reading file Pred_swd.csv
+readGrid: max memory 477626368, total allocated 245366784, free 228983456, used 16383328, increment -6816256
+Writing file .\IDP.event\models\AllModels\IDP.event_PA4_RUN1_MAXENT_outputs\IDP.event_PA4_RUN1_Pred_swd.csv
+Writing file .\IDP.event\models\AllModels\IDP.event_PA4_RUN1_MAXENT_outputs\IDP.event_PA4_RUN1_Pred_swd_clamping.csv
+Ending

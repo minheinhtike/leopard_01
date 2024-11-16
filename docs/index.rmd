@@ -1,0 +1,750 @@
+---
+title: "Species Distribution Modeling of Leopard"
+author: "Min Hein Htike"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    toc: yes
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+![](C:/git/leopard_distribution/images/leopard.jpg)
+
+
+Welcome to tutorial page of INEA-Batch-2 Group B Project.
+
+Group-B will be working on the SDM (Species Distribution Modeling) of some target species such as leopard, or key species in Alaungdaw Kathapa National Park. But in this tutorial we will use camera trap data from the Htamanthi Wildlife Sanctuary.
+
+In this tutorial, we'll cover:
+
+1. What is species distribution modeling and what it is useful for,
+2. Explore with the various R package
+3. Plotting and Mapping to explore the habitat of wildlife
+
+
+# Background
+
+The course gives a brief overview of the concept of species distribution modelling, and introduces the main modelling steps. Codes and data largely follow the materials from Zurell and Engler (2019) although we will use a different case study.
+
+Species distribution models (SDMs) are a popular tool in quantitative ecology (Franklin 2010; Peterson et al. 2011; Guisan, Thuiller, and Zimmermann 2017) and constitute the most widely used modelling framework in global change impact assessments for projecting potential future range shifts of species (IPBES 2016). There are several reasons that make them so popular: they are comparably easy to use because many software packages (e.g. Thuiller et al. 2009; Phillips, Anderson, and Schapire 2006) and guidelines (e.g. Elith, Leathwick, and Hastie 2008; Elith et al. 2011; Merow, Smith, and Silander Jr 2013; Guisan, Thuiller, and Zimmermann 2017) are available, and they have comparably low data requirements.
+
+
+# Step by Steps
+
+1. Data Preparation
+2. Modeling
+3. Validation
+4. Mapping
+5. Plotting
+
+## Load the data
+So, let’s get started in R. As mentioned previously, data used in this tutorial are leopard presence locations in Htamanthi Wildlife Sanctuary.
+
+First of all, we need to load the required packages. If you are not installed them yet, please install them, first.
+
+```{r}
+library(reshape2)         #for re-formatting data; version 1.4.3 used
+library(mgcv)             #for gams; version 1.8-24 used
+library(dismo)            #for SDMs; version 1.1-4 used
+library(rJava)            #for calling maxent from dismo (need Java installed); version 0.9-10 used
+library(randomForest)     #for random forest SDMs; version 4.6-14 used
+library(maxnet)           #maxent with maxnet; version 0.1.2 used
+library(glmnet)           #needed for maxnet; version 2.0-16 used
+library(MuMIn)            #for model selection; version 1.42.1 used
+library(PresenceAbsence)  #for model evaluation; version 1.1.9 used
+library(ecospat)         #for model evaluation; version 3.0 used
+require(here)  
+```
+
+
+# Step:1: Data Preparation
+
+In this step, the actual biodiversity and environmental data are gathered and processed. This concerns all data that are required for model fitting but also data that are used for making transfers. Special attention should be put on any scaling mismatches, meaning cases where the spatial (or temporal) grain or extent doe not match between biodiversity and environmental data or within environmental data. In these cases, we need to make decisions about adequate upscaling and downscaling strategies. Another important issue is the form of absence information available for the biodiversity data. Most SDM applications deal with some form of presence information for the species. These can be direct observations, GPS locations of data loggers, or museum records among others. All SDM algorithms require some form of absence or background information that they use as contrast to the presence data. Yet, absence data are rarely available. In such cases, adequate background data or pseudo-absence data needs to be selected. Again, the best strategy will depend on the research question, the data and the SDM algorithm (Guisan, Thuiller, and Zimmermann 2017). Finally, for later model assessment we may wish to partition the data into training data and validation data (Hastie, Tibshirani, and Friedman 2009).
+
+## 1.1 Load dataset and variables
+```{r}
+lp.data <- read.csv(here("data", "lp_location_raw_v04.csv"))
+lp.val <- read.csv(here("data", "lp_location_valid_v04.csv"))
+
+#subset to presence-only / absence-only
+lp.pres <- lp.data[lp.data$IDP_event>=1,]
+lp.abs <- lp.data[lp.data$IDP_event==0,]
+lp.pres.xy <- as.matrix(lp.pres[,c("longitude", "latitude")])
+lp.abs.xy <- as.matrix(lp.abs[,c("longitude", "latitude")])
+
+#validation data
+lp.val.pres <- as.matrix(lp.val[lp.val$IDP_event>=1, c("longitude", "latitude")])
+lp.val.abs <- as.matrix(lp.val[lp.val$IDP_event==0, c("longitude", "latitude")])
+lp.val.xy <- as.matrix(lp.val[,c("longitude", "latitude")])
+```
+
+
+## 1.2 Covariates
+
+Here, we will use elevation, NDVI, slope, and other distance related covarites to be included in our modeling process.
+
+```{r}
+#covariate maps
+elev <- raster(here("data", "newtif","elev.tif"))        #elevation layer
+ndvi <- raster(here(
+  "data","newtif","ndvi.tif"))          #Normalised Different Vegetation Index
+slope <- raster(here(
+  "data","newtif","slp.tif"))         #Degree of Slope
+ndvi <- raster(here(
+  "data","newtif","ndvi.tif"))           #Land Surface Temperature
+
+dist_rd <- raster(here("data","newtif","distance_rasters", "d_rd.tif"))       # Distance to Road
+dist_water <- raster(here("data","newtif","distance_rasters","d_water.tif"))    # Distance to Water
+dist_patrol <- raster(here("data","newtif","distance_rasters", "d_patrol.tif"))   # Distance to Patrol Stations
+dist_vlg <- raster(here("data","newtif","distance_rasters","d_vlg.tif"))  # Distance to Villages
+
+
+canopy_h <- raster(here("data","newtif", "canopy_h_bdy.tif"))
+
+bio1 <- raster(here("data", "newtif", "bio1.tif"))
+
+bio2 <- raster(here("data", "newtif", "bio1.tif"))
+
+```
+
+### check coordinates
+```{r message=TRUE}
+
+proj4string(elev)
+proj4string(ndvi)
+proj4string(slope)
+proj4string(bio1)
+proj4string(bio2)
+proj4string(canopy_h)
+proj4string(dist_rd)
+proj4string(dist_patrol)
+proj4string(dist_vlg)
+proj4string(dist_water)
+```
+
+### Make Same coordinate system
+
+```{r}
+ndvi = projectRaster(ndvi, crs = elev)
+slope= projectRaster(slope, crs=elev)
+bio1= projectRaster(bio1, crs=elev)
+bio2= projectRaster(bio2, crs=elev)
+canopy_h= projectRaster(canopy_h, crs=elev)
+dist_rd= projectRaster(dist_rd, crs=elev)
+dist_patrol= projectRaster(dist_patrol, crs=elev)
+dist_vlg= projectRaster(dist_vlg, crs=elev)
+dist_water= projectRaster(dist_water, crs=elev)
+```
+
+
+```{r}
+elev <- resample(x=elev, y= dist_water, "bilinear")
+ndvi <- resample(x=ndvi, y= dist_water, "bilinear")
+slope <- resample(slope, dist_water, "bilinear")
+bio1<- resample(bio1,dist_water, "bilinear") 
+bio2<- resample(bio2,dist_water, "bilinear")
+canopy_h <- resample(canopy_h, dist_water, "bilinear")
+dist_rd <- resample(dist_rd, dist_water, "bilinear")
+dist_patrol <- resample(dist_patrol, dist_water, "bilinear")
+dist_vlg <- resample(dist_vlg, dist_water, "bilinear")
+```
+
+```{r}
+compareRaster(elev,ndvi,slope, canopy_h, bio1, bio2, dist_patrol,dist_rd,dist_vlg,dist_water)
+```
+```{r}
+layers <- stack(elev,ndvi,slope,canopy_h, bio1, bio2, dist_patrol,dist_rd,dist_vlg,dist_water)
+names(layers) <- c("elev","ndvi","slope","canopy_h", "bio1", "bio2", "dist_patrol","dist_rd","dist_vlg","dist_water")
+```
+
+```{r}
+plot(layers)
+```
+```{r}
+pairs(layers)
+```
+
+
+## 1.3 Generate availability/background points using dismo
+
+```{r}
+back.xy <- randomPoints(layers, p=lp.pres.xy, n=100)
+
+#inspect
+head(back.xy)
+
+#re-name columns
+colnames(back.xy) <- c("longitude","latitude")
+
+#plot
+plot(elev)
+points(back.xy)
+```
+
+
+## 1.4 extract GIS data
+
+```{r}
+pres.cov <- extract(layers, lp.pres.xy)          #extracts values from layers at pres locations
+back.cov <- extract(layers, back.xy)               #extracts values from layers at random locations
+val.cov <- extract(layers, lp.val.xy)            #extracts values from layers at validation locations
+```
+
+
+### link data
+
+```{r}
+pres.cov <- data.frame(lp.pres.xy, pres.cov, pres=1)
+back.cov <- data.frame(back.xy, back.cov, pres=0)
+val.cov <- data.frame(lp.val, val.cov)
+
+#remove any potential NAs
+pres.cov <- pres.cov[complete.cases(pres.cov),]
+back.cov <- back.cov[complete.cases(back.cov),]
+val.cov <- val.cov[complete.cases(val.cov),]
+
+#bind presence and background points together
+all.cov <- rbind(pres.cov, back.cov)
+
+#inspect
+head(all.cov)
+```
+
+#Step:2: Models {.tabset}
+
+Model fitting is the heart of any SDM application. Many different algorithms are available (Elith et al. 2006), and often several algorithms are combined into ensemble models or several candidate models with different candidate predictor sets are averaged (Hastie, Tibshirani, and Friedman 2009). The decisions on these matters should have been made during the conceptualisation phase. Important aspects to consider during the model fitting step are: how to deal with multicollinearity in the environmental data? How many variables should be included in the model (without overfitting) and how should we select these? Which model settings should be used? When multiple model algorithms or candidate models are fitted, how to select the final model or average the models? Do we need to test or correct for non-independence in the data (spatial or temporal autocorrelation, nested data)? If the goal is to derive binary predictions, which threshold should be used? More detailed descriptions on these aspects can be found in Franklin (2010) and in Guisan, Thuiller, and Zimmermann (2017).
+
+Exploration of model behaviour is strictly part of the model assessment step, e.g. checking the plausibility of the fitted species-environment relationship by visual inspection of response curves, and by assessing model coefficients and variable importance. However, for simplicity, we simultaneously look at model fitting and visualise model behaviour here.
+
+## 2.1 GLMs
+
+Let’s start with fitting a simple GLM. We can fit linear, quadratic or higher polynomial terms (check poly()) and interactions between predictors:
+- the term I()indicates that a variable should be transformed before being used as predictor in the formula
+- poly(x,n) creates a polynomial of degree n
+: x+x2+...+xn
+
+- x1:x2 creates a two-way interaction term between variables x1 and x2, the linear terms of x1 and x2 would have to be specified separately
+- x1*x2 creates a two-way interaction term between variables x1 and x2 plus their linear terms
+- x1*x2*x3 creates the linear terms of the three variables, all possible two-way interactions between these variables and the three-way interaction.
+
+
+
+```{r}
+glm.lp <- glm(pres~ elev+ndvi
+              +slope+canopy_h+dist_patrol+dist_rd+dist_vlg+dist_water, family=binomial(link=logit), data=all.cov)
+
+#inspect
+summary(glm.lp)
+
+#mapping
+glm.map <- predict(layers, glm.lp, type="response")
+
+#plot
+plot(glm.map, axes=F, box=F, main="GLM")
+points(lp.pres.xy)
+
+plot(glm.lp) # check the model fitness
+```
+
+
+## 2.2 Random Forests
+
+Random forests use a bagging procedure for averaging the outputs of many different CARTs (classification and regression trees)(Liaw and Wiener 2002). Bagging stands for “bootstrap aggregation”. Basically, we fit many CARTs to bootstrapped samples of the training data and then either average the results in case of regression trees or make a simple vote in case of classification trees (committee averaging)(Hastie, Tibshirani, and Friedman 2009; Guisan, Thuiller, and Zimmermann 2017). An important feature of random forests are the out-of-bag samples, which means that the prediction/fit for a specific data point is only derived from averaging trees that did not include this data point during tree growing. Thus, the output of Random Forests is essentially cross-validated. Random forests estimate variable importance by a permutation procedure, which measures for each variable the drop in mean accuracy when this variable is permutated.
+
+```{r}
+#random forest model (default)
+rf.lp <- randomForest(as.factor(pres) ~ elev+ndvi
+              +slope+canopy_h+dist_patrol+dist_rd+dist_vlg+dist_water, na.action=na.omit, data=all.cov)
+
+#tuning model
+rf.lp.tune <- tuneRF(y=as.factor(all.cov$pres), x = all.cov[,c(3:6)], stepFactor=0.5, ntreeTry=500)
+
+#update rf model with mtry=1 based on tuning
+rf.lp <- randomForest(as.factor(pres) ~ elev+ndvi
+              +slope+canopy_h+dist_patrol+dist_rd+dist_vlg+dist_water, mtry=1, ntree=500, na.action=na.omit, data=all.cov)
+
+#variable importance plot
+varImpPlot(rf.lp)
+
+#mapping
+rf.map <- predict(layers, rf.lp, type="prob",index=2)
+
+#plot
+plot(rf.map, axes=F, box=F, main="RF")
+points(lp.pres.xy)
+```
+
+
+
+##2.3 Maxent
+
+MAXENT is now a common species distribution modeling (SDM) tool used by conservation practitioners for predicting the distribution of a species from a set of records and environmental predictors.
+
+for Maxent to run, place the maxent.jar file in the following directory:
+
+```{r}
+system.file("java",package="dismo")
+```
+
+### Maxent model (default)
+
+```{r}
+max.lp <- maxent(layers, p=lp.pres.xy)
+summary(max.lp)
+```
+
+### Provide background points
+
+```{r}
+max.lp <- maxent(layers, p=lp.pres.xy, a=back.xy)
+```
+
+### Tuning a maxent model
+
+```{r}
+maxent.beta.3 <- maxent(layers, p=lp.pres.xy, a=back.xy,
+                        args=c("betamultiplier=0.3"))
+maxent.beta3 <- maxent(layers, p=lp.pres.xy, a=back.xy,
+                       args=c("betamultiplier=3"))
+maxent.features <- maxent(layers, p=lp.pres.xy, a=back.xy,
+                          args=c("noproduct", "nohinge","nothreshold","noautofeature"))
+```
+
+### Evaluate models
+
+```{r}
+eval.max <- evaluate(p=lp.val.pres, a=lp.val.abs, max.lp, layers)
+eval.max3 <- evaluate(p=lp.val.pres, a=lp.val.abs, maxent.beta3, layers)
+eval.maxfeatures <- evaluate(p=lp.val.pres, a=lp.val.abs, maxent.features, layers)
+```
+
+### inspect
+
+```{r}
+eval.max
+eval.max3
+eval.maxfeatures
+```
+
+### plot
+
+```{r}
+response(max.lp, expand=0)
+response(maxent.beta.3, expand=0)
+response(maxent.beta3, expand=0)
+response(maxent.features, expand=0)
+```
+
+### mapping
+
+```{r}
+max.map <- predict(layers, max.lp)
+
+### plot
+plot(max.map, axes=F, box=F, main="Maxent")
+```
+
+### mapping with raw output (ROR)
+
+```{r}
+max.raw.map <- predict(layers, max.lp, args="outputformat=raw")
+
+### plot
+plot(max.raw.map, axes=F, box=F, main="Maxent-raw")
+cellStats(max.raw.map, mean)
+```
+
+
+#Step:3: K-fold validation
+
+In the model assessment step, we analyse the fitted model in depth. Strictly, checking the plausibility of the fitted species-environment relationship by visual inspection of response curves, and by assessing model coefficients and variable importance would also be part of the model assessment. However, to better understand what the different model algorithms were doing, we already explored this step during model fitting. Another crucial aspect of model assessment, which we will look at in more detail here, is assessing the predictive performance for a set of validation or test data (Hastie, Tibshirani, and Friedman 2009).
+
+Next, we assess k-fold validation model performance. We inspect different measures: AUC, the area under the receiver operating characteristic (ROC) curve (Hosmer and Lemeshow 2013); TSS, the true skill statistic (Allouche, Tsoar, and Kadmon 2006); sensitivity, the true positive rate; and specificity, the true negative rate. Simultaneously, we estimate the optimal threshold for making binary predictions. For this, we use a threshold that maximises TSS (= maximises the sum of sensitivity and specificity) (Liu et al. 2005).
+
+## 3.1 nmodel
+
+```{r}
+require(glmnet)
+```
+
+```{r include=FALSE}
+nmodels <- 3
+```
+
+## 3.2 summary table for cross-validation with existing data
+
+```{r}
+summary.eval.kfold <- data.frame(matrix(nrow=0, ncol=11))
+names(summary.eval.kfold) <- c("model", "k", "auc", "corr", "ll", "boyce",
+                               "threshold", "sens", "spec", "tss", "kappa")
+```
+
+```{r}
+folds <- 5 #number of k-folds considered
+```
+
+## 3.3 create k-folds
+
+```{r}
+kfold_pres <- kfold(pres.cov, k=folds)
+kfold_back <- kfold(back.cov, k=folds)
+
+for(k in 1:folds){
+  
+  #partition data into folds
+  kfold <- k
+  val.pres.k <- pres.cov[kfold_pres == kfold, ]
+  val.back.k <- back.cov[kfold_back == kfold, ]
+  val.k <- rbind(val.pres.k, val.back.k)
+  val.k.cov <- val.k[,cbind("elev","ndvi","slope","canopy_h", "bio1", "bio2", "dist_patrol","dist_rd","dist_vlg","dist_water")]
+  
+  train.pres.k <- pres.cov[kfold_pres != kfold, ]
+  train.back.k <- back.cov[kfold_back != kfold, ]
+  train.k <- rbind(train.pres.k, train.back.k)
+  
+  #models fit to fold
+  glm.k <- glm(pres~elev+ndvi
+              +slope+canopy_h+dist_patrol+dist_rd+dist_vlg+dist_water, 
+               family=binomial(link=logit), data=train.k)
+  
+  
+  rf.k <- randomForest(as.factor(pres) ~ elev+ndvi
+              +slope+canopy_h+dist_patrol+dist_rd+dist_vlg+dist_water, data=train.k, importance=F, ntree=500, mtry=1, na.action=na.omit)
+ 
+  max.k <- maxent(layers, p=train.pres.k[,1:2], a=train.back.k[,1:2])
+  
+  #predictions for evaluation
+  glm.val <- predict(glm.k,val.k.cov, type="response")
+  rf.val <- predict(rf.k,val.k.cov, type="prob")
+  rf.val <- rf.val[,2]
+  max.val <- predict(max.k, val.k.cov)
+
+  
+  #evaluate model on fold
+  val.data <- data.frame(siteID=1:nrow(val.k), obs=val.k$pres,
+                        glm=glm.val, rf=rf.val, max=max.val)
+  
+  for(i in 1:nmodels){
+    
+    #calculate metrics for fold
+    auc.i <- auc(val.data, which.model=i)
+    kappa.opt <- optimal.thresholds(val.data, which.model=i, opt.methods=3)
+    sens.i <- sensitivity(cmx(val.data, which.model=i,threshold = kappa.opt[[2]]))
+    spec.i <- specificity(cmx(val.data, which.model=i,threshold = kappa.opt[[2]]))
+    tss.i<- sens.i$sensitivity +spec.i$specificity - 1
+    kappa.i <- Kappa(cmx(val.data, which.model=i,threshold = kappa.opt[[2]]))
+    corr.i<-cor.test(val.data[,2],val.data[,i+2])$estimate
+    ll.i <- sum(log(val.data[,i+2]*val.data[,2] + (1-val.data[,i+2])*(1-val.data[,2])))
+    ll.i <- ifelse(ll.i=="-Inf", sum(log(val.data[,i+2]+0.001)*val.data[,2] + log((1-val.data[,i+2]))*(1-val.data[,2])),ll.i)
+    boyce.i <- ecospat.boyce(fit=val.data[,i+2],obs=val.data[1:nrow(val.pres.k),i+2],res=100,PEplot = F)
+    
+    #summarize
+    summary.i <- c(i,k,auc.i$AUC,corr.i,ll.i, boyce.i$Spearman.cor, kappa.opt[[2]],sens.i$sensitivity,spec.i$specificity,tss.i,kappa.i[[1]])
+    summary.eval.kfold <- rbind(summary.eval.kfold, summary.i)
+  }
+  print(k)
+}
+```
+
+```{r}
+names(summary.eval.kfold) <- c("model", "k", "auc", "corr", "ll", "boyce",
+                               "threshold", "sens", "spec", "tss")
+```
+
+## inspect
+
+```{r}
+require(plyr)
+summary.eval.kfold
+
+
+
+#average across folds
+(summary.eval.kfold.round <- round(ddply(summary.eval.kfold, .(model), summarise,
+            auc = mean(auc),
+            cor = mean(corr),
+            ll = mean(ll),
+            boyce = mean(boyce),
+            threshold = mean(threshold),
+            tss = mean(tss),
+            kappa = mean(kappa)
+),3))
+
+summary.eval.kfold.round$model <- c("glm", "rf", "max")
+
+
+```
+
+
+
+#Step:4: Ensembles
+
+We can also combine predictions from the two SDM algorithms and make an ensemble prediction, for example by taking the median.
+
+## 4.1 weighted average based on AUC
+
+### create a raster stack from predictions
+
+```{r}
+models <- stack(glm.map, rf.map, max.map)
+names(models) <- c("glm","rf", "max")
+```
+
+### from kfold validation sampling
+
+```{r}
+AUC.rf <- summary.eval.kfold.round[summary.eval.kfold.round$model=="rf", "auc"]
+AUC.glm <- summary.eval.kfold.round[summary.eval.kfold.round$model=="glm", "auc"]
+AUC.max <- summary.eval.kfold.round[summary.eval.kfold.round$model=="max", "auc"]
+```
+
+## 4.2 AUC weighted map
+
+```{r}
+auc.weight <- c(AUC.glm, AUC.rf, AUC.max)
+
+#AUC-based ensemble
+ensemble.auc <- weighted.mean(models, auc.weight)
+
+#plot
+plot(ensemble.auc)
+```
+
+
+## 4.3 Frequency ensemble from binary maps
+
+
+```{r}
+#Get thresholds identified in PresenceAbsence
+thres.rf <- summary.eval.kfold.round[summary.eval.kfold.round$model=="rf", "threshold"]
+thres.glm <- summary.eval.kfold.round[summary.eval.kfold.round$model=="glm", "threshold"]
+thres.max <- summary.eval.kfold.round[summary.eval.kfold.round$model=="max", "threshold"]
+
+#Create binary maps
+rf.thres.map <- rf.map
+glm.thres.map <- glm.map
+max.thres.map <- max.map
+
+values(rf.thres.map) <- 0
+values(glm.thres.map) <- 0
+values(max.thres.map) <- 0
+
+rf.thres.map[rf.map > thres.rf] <- 1
+glm.thres.map[glm.map > thres.glm] <- 1
+max.thres.map[max.map > thres.max] <- 1
+
+#plot
+plot(rf.thres.map)
+plot(glm.thres.map)
+plot(max.thres.map)
+
+#Ensemble mapping based on frequency
+ensemble.freq <- rf.thres.map + glm.thres.map + max.thres.map
+
+#plot
+plot(ensemble.freq)
+points(lp.pres.xy)
+points(lp.val.pres)
+```
+
+# Step5: Mapping the species distribution
+
+Now that we carefully fitted the SDMs, inspected model and extrapolation behaviour, and assessed predictive performance, it is finally time to make predictions in space and time. Importance points to consider here are quantification of uncertainty due to input data, algorithms, model complexity and boundary conditions (e.g. climate scenarios)(Araújo et al. 2019; Thuiller et al. 2019). When transferring the model to a different geographic area or time period, it is also recommended to quantify uncertainty due to novel environments (Zurell, Elith, and Schroeder 2012).
+
+```{r}
+par(mfrow = c(2,2))
+plot(glm.map, main = "Prediction of Leopard Distribution by GLM")
+plot(rf.map, main = "Prediction of Leopard Distribution by Random Forest")
+plot(max.map, main = "Prediction of Leopard Distribution by MaxEnt")
+plot(ensemble.auc, main = "Prediction of Leopard Distribution \n Average weighted model by both GLM, Random Forest and MaxEnt")
+{plot(ensemble.auc, main = "Presence detection of Leopard in 2014-2020")
+points(lp.pres.xy, pch=16)}
+```
+
+
+Threashold Maps aka binary map are also useful for the visual interpretation. 
+
+```{r}
+require(sf)
+ensemble.thres <- rf.thres.map + max.thres.map
+hmt_bd <- st_read("C:/git/leopard_distribution/data/Boundary/Htamanthi_BD.shp")
+#hmt_shp <- readOGR("C:/git/leopard_distribution/data/Boundary/Htamanthi_BD.shp")
+
+par(mfrow = c(2,2))
+plot(rf.thres.map, main = "Thresholds of Leopard Distribution by Random Forest")
+plot(max.thres.map, main = "Thresholds of Leopard Distribution by MaxEnt")
+plot(ensemble.thres, main = "Thresholds of Leopard Distribution \n Average weighted model by both GLM, Random Forest and MaxEnt")
+{plot(ensemble.thres, main = "Presence detection of Leopard in 2018-2019")
+points(lp.pres.xy, pch=16)}
+```
+
+Let's make them pretty!!!
+```{r}
+ensemble_spdf <- rasterToPoints((ensemble.thres$layer))
+ensemble_df <- data.frame(ensemble_spdf)
+head(ensemble_df)
+
+head(lp.pres.xy)
+point_sf = st_as_sf(lp.pres, coords = c("longitude", "latitude"))
+st_crs(point_sf) = crs(layers)
+```
+
+```{r}
+require(ggplot2)
+p4 <- ggplot() + 
+  geom_raster(data = ensemble_df, mapping = aes(x = x, y = y, fill = layer)) + 
+   scale_fill_gradient2(low = "transparent", mid = "darkblue", high = "darkgreen", midpoint = 1, name = "No. of models \npredicted") + 
+  geom_sf(data = hmt_bd, colour = "black", fill = NA)+
+  geom_sf(data = point_sf, color = "red")+
+  xlab("Longitude") + 
+  ylab("Latitude")+
+  ggtitle("Leopard Distribution Prediction Thresholds \nby GLM, Random Forest and MaxEnt Models") + 
+  coord_sf()
+```
+
+Prediction Model AUC Esamble
+```{r}
+auc_ensemble_spdf <- rasterToPoints((ensemble.auc$layer))
+auc_ensemble_df <- data.frame(auc_ensemble_spdf)
+head(auc_ensemble_df)
+```
+
+```{r}
+p3<- ggplot() + 
+  geom_raster(data = auc_ensemble_df, mapping = aes(x = x, y = y, fill = layer)) + 
+  scale_fill_viridis_c(name="Probability of \nLeopard \npresence")+
+  geom_sf(data = hmt_bd, colour = "black", fill = NA)+
+  geom_sf(data = point_sf, color = "red")+
+  xlab("Longitude") + 
+  ylab("Latitude")+
+  ggtitle("Leopard Distribution Prediction AUC weighted \nby GLM, Random Forest and MaxEnt Models") + 
+  coord_sf()
+```
+
+Prediction Random Forest
+```{r}
+rf_spdf <- rasterToPoints((rf.map))
+rf_df <- data.frame(rf_spdf)
+head(rf_df)
+```
+
+
+```{r}
+p1 <- ggplot() + 
+  geom_raster(data = rf_df, mapping = aes(x = x, y = y, fill = layer)) + 
+  scale_fill_viridis_c(name="Probability of \nLeopard \npresence")+
+  geom_sf(data = hmt_bd, colour = "black", fill = NA)+
+  geom_sf(data = point_sf, color = "red")+
+  xlab("Longitude") + 
+  ylab("Latitude")+
+  ggtitle("Leopard Distribution Prediction by Random Forest") + 
+  coord_sf()
+```
+
+
+Prediction MaxEnt
+```{r}
+max_spdf <- rasterToPoints((max.map))
+max_df <- data.frame(max_spdf)
+head(max_df)
+```
+
+
+```{r}
+p2 <- ggplot() + 
+  geom_raster(data = max_df, mapping = aes(x = x, y = y, fill = layer)) + 
+  scale_fill_viridis_c(name="Probability of \nLeopard \npresence")+
+  geom_sf(data = hmt_bd, colour = "black", fill = NA)+
+  geom_sf(data = point_sf, color = "red")+
+  xlab("Longitude") + 
+  ylab("Latitude")+
+  ggtitle("Leopard Distribution Prediction by MaxEnt") + 
+  coord_sf()
+p2
+```
+
+Prediction GLM
+```{r}
+glm_spdf <- rasterToPoints((glm.map))
+glm_df <- data.frame(glm_spdf)
+head(glm_df)
+```
+
+
+```{r}
+p6 <- ggplot() + 
+  geom_raster(data = glm_df, mapping = aes(x = x, y = y, fill = layer)) + 
+  scale_fill_viridis_c(name="Probability of \nLeopard \npresence")+
+  geom_sf(data = hmt_bd, colour = "black", fill = NA)+
+  geom_sf(data = point_sf, color = "red")+
+  xlab("Longitude") + 
+  ylab("Latitude")+
+  ggtitle("Leopard Distribution Prediction by GLM") + 
+  coord_sf()
+p6
+```
+
+```{r}
+library(patchwork)
+p6 + p1 + p2+p3+p4 + plot_layout(ncol = 2)
+```
+
+
+
+# Step:6: Interpreting environmental relationships
+
+
+## For GLM
+```{r}
+prediction.glm <- extract(glm.map, lp.val.xy)
+glm.df <- data.frame(predict = prediction.glm, val.cov)
+
+p.glm.elev <- ggplot(glm.df, aes(elev, predict)) +
+  geom_point(alpha = 0.3, colour = "blue")+
+  geom_smooth(span = 50)+
+  ggtitle("a)") +
+  ylim(-1, 2)+
+  xlab("Elevation (m)")+
+  ylab("Probability of Species Presence")
+
+p.glm.slope <- ggplot(glm.df, aes(Slope, predict)) +
+  geom_point(alpha = 0.3, colour = "blue")+
+  geom_smooth(span = 50)+
+  ggtitle("a)") +
+  ylim(-1, 2)+
+  xlab("Slope (Degree)")+
+  ylab("Probability of Species Presence")
+
+p.glm.ndvi <- ggplot(glm.df, aes(ndvi, predict)) +
+  geom_point(alpha = 0.3, colour = "blue")+
+  geom_smooth(span = 50)+
+  ggtitle("a)") +
+  ylim(-1, 2)+
+  xlab("Elevation (m)")+
+  ylab("Probability of Species Presence")
+
+p.glm.canopy <- ggplot(glm.df, aes(canopy_h, predict)) +
+  geom_point(alpha = 0.3, colour = "blue")+
+  geom_smooth(span = 50)+
+  ggtitle("a)") +
+  ylim(-1, 2)+
+  xlab("canopy height (m)")+
+  ylab("Probability of Species Presence")
+
+p.glm.d_road <- ggplot(glm.df, aes(dist_rd, predict)) +
+  geom_point(alpha = 0.3, colour = "blue")+
+  geom_smooth(span = 50)+
+  ggtitle("a)") +
+  ylim(-1, 2)+
+  xlab("distance to road (m)")+
+  ylab("Probability of Species Presence")
+```
+
+
+Thank you very much!
+
+![](C:/git/leopard_distribution/images/leopard_PNG14837.png)

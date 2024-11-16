@@ -1,0 +1,11 @@
+Predictor variable,Categorical,Sample average
+bio1,false,23.595488377372448
+bio2,false,23.595488377372448
+canopy_h,false,29.812557962365087
+dist_patrol,false,7672.649552371005
+dist_rd,false,1903.9498884117916
+dist_vlg,false,14937.993245778069
+dist_water,false,1084.8196378991215
+elev,false,253.57828197687795
+ndvi,false,0.7120313029464433
+slope,false,5.173448191704207

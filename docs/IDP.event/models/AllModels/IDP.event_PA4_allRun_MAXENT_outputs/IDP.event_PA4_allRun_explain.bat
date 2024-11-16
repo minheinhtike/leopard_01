@@ -1,0 +1,2 @@
+java -mx500m -cp "/C:/git/leopard_distribution/docs/maxent.jar;C:/git/leopard_distribution/docs/maxent.jar" density.Explain -l C:\git\leopard_distribution\docs\.\IDP.event\models\AllModels\IDP.event_PA4_allRun_MAXENT_outputs\IDP.event_PA4_allRun.lambdas C:\git\leopard_distribution\docs\.\IDP.event\models\AllModels\IDP.event_PA4_allRun_MAXENT_outputs\IDP.event_PA4_allRun.asc C:\git\leopard_distribution\docs\.\IDP.event\models\AllModels\IDP.event_PA4_allRun_MAXENT_outputs\Back_swd.csv
+@if errorlevel 1 pause

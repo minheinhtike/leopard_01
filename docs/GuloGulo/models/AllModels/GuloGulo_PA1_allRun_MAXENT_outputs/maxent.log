@@ -1,0 +1,46 @@
+Thu Nov 14 19:01:55 EST 2024
+MaxEnt version 3.4.4
+Reading file Back_swd.csv
+readGrid: max memory 477626368, total allocated 245366784, free 217222672, used 28144112, increment 28144112
+Reading samples from Sp_swd.csv
+Read samples: max memory 477626368, total allocated 245366784, free 203150496, used 42216288, increment 14072176
+Making features
+makeFeatures: max memory 477626368, total allocated 245366784, free 195474856, used 49891928, increment 7675640
+Command line used:  environmentallayers=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Back_swd.csv samplesfile=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Sp_swd.csv projectionlayers=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Predictions/Pred_swd.csv outputdirectory=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs outputformat=logistic redoifexists visible=FALSE linear=TRUE quadratic=TRUE product=TRUE threshold=TRUE hinge=TRUE lq2lqptthreshold=80 l2lqthreshold=10 hingethreshold=15 beta_threshold=-1 beta_categorical=-1 beta_lqp=-1 beta_hinge=-1 betamultiplier=1 defaultprevalence=0.5 autorun nowarnings notooltips noaddsamplestobackground
+Command line to repeat: java density.MaxEnt nowarnings noprefixes outputformat=logistic outputdirectory=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs projectionlayers=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Predictions/Pred_swd.csv samplesfile=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Sp_swd.csv environmentallayers=./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Back_swd.csv nowarnings notooltips noaskoverwrite threshold noaddsamplestobackground autorun novisible
+Species: GuloGulo_PA1_allRun
+Layers: bio11 bio12 bio3 bio4 bio7
+Layertypes: Continuous Continuous Continuous Continuous Continuous
+outputformat: logistic
+outputdirectory: ./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs
+projectionlayers: ./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Predictions/Pred_swd.csv
+samplesfile: ./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Sp_swd.csv
+environmentallayers: ./GuloGulo/models/AllModels/GuloGulo_PA1_allRun_MAXENT_outputs/Back_swd.csv
+warnings: false
+tooltips: false
+askoverwrite: false
+threshold: true
+addsamplestobackground: false
+autorun: true
+visible: false
+
+getSamples: max memory 477626368, total allocated 245366784, free 195474856, used 49891928, increment 0
+GuloGulo_PA1_allRun: 
+Regularization values: linear/quadratic/product: 0.050, categorical: 0.250, threshold: 1.000, hinge: 0.500
+661 samples
+Density: max memory 477626368, total allocated 245366784, free 191633904, used 53732880, increment 3840952
+linearPredictor: max memory 477626368, total allocated 245366784, free 191633904, used 53732880, increment 0
+FeaturedSpace: max memory 477626368, total allocated 245366784, free 191633904, used 53732880, increment 0
+Sequential: max memory 477626368, total allocated 245366784, free 191633904, used 53732880, increment 0
+Initial loss: 6.907755278982137
+Time since start: 1.592
+500: time = 1.502000 loss = -171.328504
+Resulting gain: 178.23625905284075
+Projecting...
+Writing file .\GuloGulo\models\AllModels\GuloGulo_PA1_allRun_MAXENT_outputs\GuloGulo_PA1_allRun.csv
+Projecting...
+Reading file Pred_swd.csv
+readGrid: max memory 477626368, total allocated 333447168, free 284801120, used 48646048, increment -5086832
+Writing file .\GuloGulo\models\AllModels\GuloGulo_PA1_allRun_MAXENT_outputs\GuloGulo_PA1_allRun_Pred_swd.csv
+Writing file .\GuloGulo\models\AllModels\GuloGulo_PA1_allRun_MAXENT_outputs\GuloGulo_PA1_allRun_Pred_swd_clamping.csv
+Ending
